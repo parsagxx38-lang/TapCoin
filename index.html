@@ -7,10 +7,11 @@ if (tg) {
 
 let player = null;
 let ready = false;
-let lastSave = Date.now();
+let lastTick = Date.now();
+let tickTimer = null;
 
 const $ = id => document.getElementById(id);
-const fmt = n => Math.floor(Number(n || 0)).toLocaleString("fa-IR");
+const fmt = n => Math.floor(Number(n) || 0).toLocaleString("fa-IR");
 
 function status(message, ok = false) {
   $("status").textContent = message;
@@ -29,23 +30,20 @@ function newPlayer() {
     autoCost: 100,
     energyCost: 150,
     lastDaily: 0,
-    username:
-      tg?.initDataUnsafe?.user?.username ||
-      tg?.initDataUnsafe?.user?.first_name ||
-      "بازیکن"
+    username: tg?.initDataUnsafe?.user?.username ||
+      tg?.initDataUnsafe?.user?.first_name || "بازیکن"
   };
 }
 
 function storageKey() {
-  const id = tg?.initDataUnsafe?.user?.id;
-  return "tapcoin_local_" + (id || "guest");
+  return "tapcoin_local_" + (tg?.initDataUnsafe?.user?.id || "guest");
 }
 
 function save() {
   try {
     localStorage.setItem(storageKey(), JSON.stringify(player));
   } catch (e) {
-    status("ذخیره‌سازی مرورگر در دسترس نیست.");
+    console.error("ذخیره ناموفق بود", e);
   }
 }
 
@@ -54,8 +52,18 @@ function load() {
     const saved = localStorage.getItem(storageKey());
     if (!saved) return newPlayer();
 
-    const old = JSON.parse(saved);
-    return { ...newPlayer(), ...old };
+    const data = { ...newPlayer(), ...JSON.parse(saved) };
+
+    data.energy = Math.max(0, Math.min(
+      Number(data.maxEnergy) || 500,
+      Number(data.energy) || 0
+    ));
+
+    data.regen = Math.max(1, Number(data.regen) || 1);
+    data.autoIncome = Math.max(0, Number(data.autoIncome) || 0);
+    data.coins = Math.max(0, Number(data.coins) || 0);
+
+    return data;
   } catch {
     return newPlayer();
   }
@@ -93,6 +101,7 @@ function render() {
   $("username").textContent = player.username;
 
   const wait = 86400000 - (Date.now() - player.lastDaily);
+
   $("dailyMsg").textContent =
     player.lastDaily && wait > 0
       ? "زمان باقی‌مانده: " + Math.ceil(wait / 3600000) + " ساعت"
@@ -101,24 +110,19 @@ function render() {
   $("coin").disabled = !ready || player.energy < 1;
   $("tapBuy").disabled = !ready || player.coins < player.tapCost;
   $("autoBuy").disabled = !ready || player.coins < player.autoCost;
-  $("energyBuy").disabled =
-    !ready || player.coins < player.energyCost;
-
+  $("energyBuy").disabled = !ready || player.coins < player.energyCost;
   $("dailyBtn").disabled =
-    !ready || (player.lastDaily && wait > 0);
+    !ready || (player.lastDaily > 0 && wait > 0);
 }
 
 function buyUpgrade(type) {
   if (!ready || !player) return;
 
-  let cost;
-
-  if (type === "tap") cost = player.tapCost;
-  else if (type === "auto") cost = player.autoCost;
-  else cost = player.energyCost;
+  const cost = type === "tap" ? player.tapCost :
+    type === "auto" ? player.autoCost : player.energyCost;
 
   if (player.coins < cost) {
-    status("سکه کافی نداری!", false);
+    status("سکه کافی نداری!");
     return;
   }
 
@@ -127,7 +131,7 @@ function buyUpgrade(type) {
   if (type === "tap") {
     player.power += 1;
     player.tapCost = Math.ceil(player.tapCost * 1.65);
-    status("قدرت کلیک بیشتر شد!", true);
+    status("قدرت کلیک افزایش یافت!", true);
   } else if (type === "auto") {
     player.autoIncome += 1;
     player.autoCost = Math.ceil(player.autoCost * 1.8);
@@ -135,7 +139,7 @@ function buyUpgrade(type) {
   } else {
     player.regen += 1;
     player.energyCost = Math.ceil(player.energyCost * 1.8);
-    status("سرعت شارژ انرژی بیشتر شد!", true);
+    status("شارژ انرژی سریع‌تر شد!", true);
   }
 
   save();
@@ -145,7 +149,7 @@ function buyUpgrade(type) {
 $("coin").addEventListener("click", () => {
   if (!ready || !player || player.energy < 1) return;
 
-  player.energy -= 1;
+  player.energy = Math.max(0, player.energy - 1);
   player.coins += player.power;
 
   save();
@@ -159,7 +163,7 @@ $("energyBuy").addEventListener("click", () => buyUpgrade("energy"));
 $("dailyBtn").addEventListener("click", () => {
   if (!ready || !player) return;
 
-  if (Date.now() - player.lastDaily < 86400000) {
+  if (player.lastDaily && Date.now() - player.lastDaily < 86400000) {
     status("جایزه روزانه هنوز آماده نیست.");
     return;
   }
@@ -169,12 +173,12 @@ $("dailyBtn").addEventListener("click", () => {
 
   save();
   render();
-  status("۱۰۰ سکه جایزه گرفتی!", true);
+  status("۱۰۰ سکه دریافت کردی!", true);
 });
 
 function inviteLink() {
-  const id = tg?.initDataUnsafe?.user?.id || "invite";
-  return "https://t.me/TappCoiinnBot?start=ref_" + id;
+  return "https://t.me/TappCoiinnBot?start=ref_" +
+    (tg?.initDataUnsafe?.user?.id || "invite");
 }
 
 $("copyBtn").addEventListener("click", async () => {
@@ -187,11 +191,9 @@ $("copyBtn").addEventListener("click", async () => {
 });
 
 $("shareBtn").addEventListener("click", () => {
-  const url =
-    "https://t.me/share/url?url=" +
+  const url = "https://t.me/share/url?url=" +
     encodeURIComponent(inviteLink()) +
-    "&text=" +
-    encodeURIComponent("بیا TapCoin بازی کنیم!");
+    "&text=" + encodeURIComponent("بیا TapCoin بازی کنیم!");
 
   if (tg?.openTelegramLink) tg.openTelegramLink(url);
   else window.open(url, "_blank");
@@ -210,12 +212,13 @@ document.querySelectorAll(".nav button").forEach(btn => {
   });
 });
 
+// شارژ انرژی و درآمد بر اساس زمان واقعی سپری‌شده
 function gameTick() {
   if (!player || !ready) return;
 
   const now = Date.now();
-  const elapsed = Math.min((now - lastSave) / 1000, 10);
-  lastSave = now;
+  const elapsed = Math.max(0, Math.min((now - lastTick) / 1000, 3600));
+  lastTick = now;
 
   player.energy = Math.min(
     player.maxEnergy,
@@ -230,9 +233,10 @@ function gameTick() {
 
 player = load();
 ready = true;
-lastSave = Date.now();
+lastTick = Date.now();
+
 render();
+status("شارژ انرژی فعال است: هر ثانیه " + player.regen + " واحد.", true);
 
-status("حالت محلی فعال است؛ انرژی و درآمد هر ثانیه به‌روز می‌شوند.", true);
-
-setInterval(gameTick, 1000);
+if (tickTimer) clearInterval(tickTimer);
+tickTimer = setInterval(gameTick, 1000);
