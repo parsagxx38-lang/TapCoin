@@ -1,4 +1,5 @@
 
+<script>
 const tg = window.Telegram?.WebApp;
 if (tg) {
   tg.ready();
@@ -13,37 +14,43 @@ let tickTimer = null;
 const $ = id => document.getElementById(id);
 const fmt = n => Math.floor(Number(n) || 0).toLocaleString("fa-IR");
 
+function setText(id, value) {
+  const el = $(id);
+  if (el) el.textContent = value;
+}
+
+function setDisabled(id, value) {
+  const el = $(id);
+  if (el) el.disabled = value;
+}
+
 function status(message, ok = false) {
-  $("status").textContent = message;
-  $("status").classList.toggle("ok", ok);
+  const el = $("status");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("ok", ok);
 }
 
 function newPlayer() {
   return {
-    coins: 0,
-    power: 1,
-    energy: 500,
-    maxEnergy: 500,
-    regen: 1,
-    autoIncome: 0,
-    tapCost: 50,
-    autoCost: 100,
-    energyCost: 150,
-    lastDaily: 0,
+    coins: 0, power: 1, energy: 500, maxEnergy: 500,
+    regen: 1, autoIncome: 0, tapCost: 50, autoCost: 100,
+    energyCost: 150, lastDaily: 0,
     username: tg?.initDataUnsafe?.user?.username ||
       tg?.initDataUnsafe?.user?.first_name || "بازیکن"
   };
 }
 
 function storageKey() {
-  return "tapcoin_local_" + (tg?.initDataUnsafe?.user?.id || "guest");
+  return "tapcoin_local_" +
+    (tg?.initDataUnsafe?.user?.id || "guest");
 }
 
 function save() {
   try {
     localStorage.setItem(storageKey(), JSON.stringify(player));
   } catch (e) {
-    console.error("Save failed", e);
+    console.error("ذخیره ناموفق", e);
   }
 }
 
@@ -52,7 +59,13 @@ function load() {
     const saved = localStorage.getItem(storageKey());
     if (!saved) return newPlayer();
 
-    return { ...newPlayer(), ...JSON.parse(saved) };
+    const p = { ...newPlayer(), ...JSON.parse(saved) };
+    p.maxEnergy = Math.max(1, Number(p.maxEnergy) || 500);
+    p.energy = Math.max(0, Math.min(p.maxEnergy, Number(p.energy) || 0));
+    p.regen = Math.max(1, Number(p.regen) || 1);
+    p.coins = Math.max(0, Number(p.coins) || 0);
+    p.autoIncome = Math.max(0, Number(p.autoIncome) || 0);
+    return p;
   } catch {
     return newPlayer();
   }
@@ -61,47 +74,35 @@ function load() {
 function render() {
   if (!player) return;
 
-  $("coins").textContent = fmt(player.coins);
-  $("myRankCoins").textContent = fmt(player.coins);
-  $("power").textContent = fmt(player.power);
-  $("income").textContent = fmt(player.autoIncome);
+  setText("coins", fmt(player.coins));
+  setText("myRankCoins", fmt(player.coins));
+  setText("power", fmt(player.power));
+  setText("income", fmt(player.autoIncome));
+  setText("energyText", fmt(player.energy) + " / " + fmt(player.maxEnergy));
+  setText("tapBuy", "🪙 " + fmt(player.tapCost));
+  setText("autoBuy", "🪙 " + fmt(player.autoCost));
+  setText("energyBuy", "🪙 " + fmt(player.energyCost));
+  setText("tapDesc", "قدرت فعلی: " + fmt(player.power) + " سکه در هر کلیک");
+  setText("autoDesc", "درآمد: " + fmt(player.autoIncome) + " سکه در ثانیه");
+  setText("energyDesc", "شارژ: " + fmt(player.regen) + " انرژی در ثانیه");
+  setText("username", player.username);
 
-  $("energyText").textContent =
-    fmt(player.energy) + " / " + fmt(player.maxEnergy);
-
-  $("energyBar").style.width =
-    Math.max(0, Math.min(100,
-      player.energy / player.maxEnergy * 100
-    )) + "%";
-
-  $("tapBuy").textContent = "🪙 " + fmt(player.tapCost);
-  $("autoBuy").textContent = "🪙 " + fmt(player.autoCost);
-  $("energyBuy").textContent = "🪙 " + fmt(player.energyCost);
-
-  $("tapDesc").textContent =
-    "قدرت فعلی: " + fmt(player.power) + " سکه در هر کلیک";
-
-  $("autoDesc").textContent =
-    "درآمد: " + fmt(player.autoIncome) + " سکه در ثانیه";
-
-  $("energyDesc").textContent =
-    "شارژ: " + fmt(player.regen) + " انرژی در ثانیه";
-
-  $("username").textContent = player.username;
+  const bar = $("energyBar");
+  if (bar) {
+    bar.style.width = Math.max(0, Math.min(100,
+      player.energy / player.maxEnergy * 100)) + "%";
+  }
 
   const wait = 86400000 - (Date.now() - player.lastDaily);
+  setText("dailyMsg", player.lastDaily && wait > 0
+    ? "زمان باقی‌مانده: " + Math.ceil(wait / 3600000) + " ساعت"
+    : "جایزه آماده است!");
 
-  $("dailyMsg").textContent =
-    player.lastDaily && wait > 0
-      ? "زمان باقی‌مانده: " + Math.ceil(wait / 3600000) + " ساعت"
-      : "جایزه آماده است!";
-
-  $("coin").disabled = !ready || player.energy < 1;
-  $("tapBuy").disabled = !ready || player.coins < player.tapCost;
-  $("autoBuy").disabled = !ready || player.coins < player.autoCost;
-  $("energyBuy").disabled = !ready || player.coins < player.energyCost;
-  $("dailyBtn").disabled =
-    !ready || (player.lastDaily > 0 && wait > 0);
+  setDisabled("coin", !ready || player.energy < 1);
+  setDisabled("tapBuy", !ready || player.coins < player.tapCost);
+  setDisabled("autoBuy", !ready || player.coins < player.autoCost);
+  setDisabled("energyBuy", !ready || player.coins < player.energyCost);
+  setDisabled("dailyBtn", !ready || (player.lastDaily > 0 && wait > 0));
 }
 
 function buyUpgrade(type) {
@@ -118,38 +119,41 @@ function buyUpgrade(type) {
   player.coins -= cost;
 
   if (type === "tap") {
-    player.power += 1;
+    player.power++;
     player.tapCost = Math.ceil(player.tapCost * 1.65);
     status("قدرت کلیک افزایش یافت!", true);
   } else if (type === "auto") {
-    player.autoIncome += 1;
+    player.autoIncome++;
     player.autoCost = Math.ceil(player.autoCost * 1.8);
     status("درآمد خودکار افزایش یافت!", true);
   } else {
-    player.regen += 1;
+    player.regen++;
     player.energyCost = Math.ceil(player.energyCost * 1.8);
-    status("سرعت شارژ انرژی افزایش یافت!", true);
+    status("سرعت شارژ افزایش یافت!", true);
   }
 
   save();
   render();
 }
 
-$("coin").addEventListener("click", () => {
-  if (!ready || !player || player.energy < 1) return;
+function on(id, event, handler) {
+  const el = $(id);
+  if (el) el.addEventListener(event, handler);
+}
 
+on("coin", "click", () => {
+  if (!ready || !player || player.energy < 1) return;
   player.energy = Math.max(0, player.energy - 1);
   player.coins += player.power;
-
   save();
   render();
 });
 
-$("tapBuy").addEventListener("click", () => buyUpgrade("tap"));
-$("autoBuy").addEventListener("click", () => buyUpgrade("auto"));
-$("energyBuy").addEventListener("click", () => buyUpgrade("energy"));
+on("tapBuy", "click", () => buyUpgrade("tap"));
+on("autoBuy", "click", () => buyUpgrade("auto"));
+on("energyBuy", "click", () => buyUpgrade("energy"));
 
-$("dailyBtn").addEventListener("click", () => {
+on("dailyBtn", "click", () => {
   if (!ready || !player) return;
 
   if (player.lastDaily && Date.now() - player.lastDaily < 86400000) {
@@ -159,7 +163,6 @@ $("dailyBtn").addEventListener("click", () => {
 
   player.coins += 100;
   player.lastDaily = Date.now();
-
   save();
   render();
   status("۱۰۰ سکه دریافت کردی!", true);
@@ -170,7 +173,7 @@ function inviteLink() {
     (tg?.initDataUnsafe?.user?.id || "invite");
 }
 
-$("copyBtn").addEventListener("click", async () => {
+on("copyBtn", "click", async () => {
   try {
     await navigator.clipboard.writeText(inviteLink());
     status("لینک دعوت کپی شد!", true);
@@ -179,7 +182,7 @@ $("copyBtn").addEventListener("click", async () => {
   }
 });
 
-$("shareBtn").addEventListener("click", () => {
+on("shareBtn", "click", () => {
   const url = "https://t.me/share/url?url=" +
     encodeURIComponent(inviteLink()) +
     "&text=" + encodeURIComponent("بیا TapCoin بازی کنیم!");
@@ -190,18 +193,17 @@ $("shareBtn").addEventListener("click", () => {
 
 document.querySelectorAll(".nav button").forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".nav button")
-      .forEach(b => b.classList.remove("active"));
-
-    document.querySelectorAll(".section")
-      .forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".nav button").forEach(b =>
+      b.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(s =>
+      s.classList.remove("active"));
 
     btn.classList.add("active");
-    $(btn.dataset.tab).classList.add("active");
+    const section = $(btn.dataset.tab);
+    if (section) section.classList.add("active");
   });
 });
 
-// شارژ پیوسته انرژی و درآمد خودکار
 function gameTick() {
   if (!player || !ready) return;
 
@@ -209,13 +211,12 @@ function gameTick() {
   const elapsed = Math.min(Math.max((now - lastTick) / 1000, 0), 3600);
   lastTick = now;
 
-  const oldEnergy = Number(player.energy) || 0;
-  const maxEnergy = Number(player.maxEnergy) || 500;
-  const regen = Math.max(1, Number(player.regen) || 1);
+  player.energy = Math.min(
+    player.maxEnergy,
+    player.energy + player.regen * elapsed
+  );
 
-  player.energy = Math.min(maxEnergy, oldEnergy + regen * elapsed);
-  player.coins = Math.max(0, Number(player.coins) || 0)
-    + Math.max(0, Number(player.autoIncome) || 0) * elapsed;
+  player.coins += player.autoIncome * elapsed;
 
   render();
   save();
@@ -225,14 +226,15 @@ player = load();
 ready = true;
 lastTick = Date.now();
 render();
+status("شارژ محلی فعال است.", true);
 
-status("بازی محلی فعال است؛ شارژ انرژی هر ثانیه اجرا می‌شود.", true);
-
+if (tickTimer) clearInterval(tickTimer);
 tickTimer = setInterval(gameTick, 1000);
 
-// هنگام برگشت به بازی، رابط را تازه کن
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
+    lastTick = Date.now();
     gameTick();
   }
 });
+</script>
