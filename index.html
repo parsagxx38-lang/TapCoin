@@ -3,145 +3,305 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TapCoin</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TapCoin | Earn & Upgrade</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
+:root {
+  --bg:#090b10; --panel:#141821; --gold:#ffd76a;
+  --muted:#9299a8; --line:#282d38;
+}
+* {box-sizing:border-box}
 body {
-  background: #101827;
-  color: white;
-  font-family: sans-serif;
-  text-align: center;
-  padding: 20px;
+  margin:0;background:var(--bg);color:#fff;
+  font-family:system-ui,-apple-system,sans-serif;
+  padding:18px 14px 100px;
 }
-.card {
-  background: #1d2a40;
-  padding: 18px;
-  margin: 14px auto;
-  border-radius: 18px;
-  max-width: 360px;
-}
+header {display:flex;justify-content:space-between;align-items:center}
+.brand {font-weight:900;font-size:23px;letter-spacing:.4px}
+.brand span {color:var(--gold)}
+.pill {border:1px solid #39342a;color:var(--gold);
+  border-radius:20px;padding:7px 11px;font-size:12px}
+.sub {color:var(--muted);font-size:13px}
+.balance {text-align:center;margin:27px 0 12px}
+.balance h1 {font-size:38px;margin:5px}
+.gold {color:var(--gold)}
+.coin-area {display:flex;justify-content:center;margin:26px 0}
 .coin {
-  width: 165px;
-  height: 165px;
-  border-radius: 50%;
-  border: 6px solid #ffe17a;
-  background: linear-gradient(#ffd84d,#e99a00);
-  color: #513400;
-  font-size: 65px;
-  margin: 25px auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  cursor: pointer;
-  box-shadow: 0 0 25px #e99a0066;
+ width:190px;height:190px;border-radius:50%;
+ background:radial-gradient(circle at 35% 25%,#fff1a8,#ffca42 42%,#b77913 78%,#ffe9a0);
+ border:7px solid #9b6c1b;
+ box-shadow:0 0 0 7px #f8c84a16,0 0 45px #f8b93124,inset 0 0 0 5px #fff5bd;
+ color:#5b3900;font-size:65px;font-weight:1000;
+ cursor:pointer;transition:transform .08s;position:relative;
 }
-button {
-  background: #ffd34e;
-  color: #302300;
-  border: 0;
-  border-radius: 12px;
-  padding: 13px;
-  font-size: 16px;
-  font-weight: bold;
-  width: 100%;
-  margin-top: 10px;
+.coin:active {transform:scale(.93)}
+.coin span {text-shadow:0 2px 0 #fff4b4}
+@keyframes pop {to {opacity:0;transform:translateY(-65px) scale(1.2)}}
+.float {
+ position:fixed;pointer-events:none;color:var(--gold);
+ font-weight:900;font-size:24px;animation:pop .7s forwards;z-index:9
 }
-.small { color: #b8c5d8; }
+.stats {display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card {
+ background:linear-gradient(145deg,#191e29,#11151c);
+ border:1px solid var(--line);border-radius:17px;padding:15px;
+}
+.label {color:var(--muted);font-size:12px}
+.value {font-size:19px;font-weight:800;margin-top:6px}
+.section {display:none;margin-top:20px}
+.section.active {display:block}
+h2 {font-size:19px;margin:5px 0 14px}
+.item {display:flex;align-items:center;gap:12px;margin:10px 0}
+.item .info {flex:1}
+.item h3 {font-size:14px;margin:0 0 5px}
+.item p {font-size:12px;color:var(--muted);margin:0}
+.item button,.main-btn {
+ border:0;background:linear-gradient(135deg,#ffe99b,#e9ac31);
+ color:#261a00;font-weight:900;border-radius:11px;padding:11px;
+}
+.item button {min-width:100px}
+button {cursor:pointer}
+button:disabled {opacity:.45;cursor:not-allowed}
+.iconbox {
+ width:45px;height:45px;border-radius:13px;display:grid;
+ place-items:center;background:#29251b;font-size:22px
+}
+.progress {height:7px;background:#292e39;border-radius:8px;overflow:hidden;margin-top:10px}
+.progress div {height:100%;width:100%;background:var(--gold);transition:width .3s}
+.main-btn {width:100%;padding:14px;font-size:15px;margin-top:10px}
+.nav {
+ position:fixed;bottom:0;left:0;right:0;background:#10131a;
+ border-top:1px solid var(--line);display:flex;justify-content:space-around;
+ padding:10px 3px calc(10px + env(safe-area-inset-bottom));z-index:10
+}
+.nav button {background:none;color:var(--muted);border:0;font-size:11px;padding:5px}
+.nav button b {display:block;font-size:21px;margin-bottom:4px}
+.nav button.active {color:var(--gold)}
+.notice {font-size:12px;color:var(--muted);line-height:1.8;margin-top:13px}
+.rowline {display:flex;justify-content:space-between;gap:10px;align-items:center}
+.rank {display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line)}
 </style>
 </head>
 <body>
+<header>
+  <div class="brand">TAP<span>COIN</span></div>
+  <div class="pill">✦ GOLD LEAGUE</div>
+</header>
+<p class="sub">به دنیای سکه‌ها خوش اومدی!</p>
 
-<h1>🪙 TapCoin</h1>
-<p class="small">بزن، جمع کن و ارتقا بده!</p>
-
-<div class="card">
-  <p>موجودی سکه</p>
-  <h1>🪙 <span id="coins">0</span></h1>
-  <div class="coin" onclick="tap()">₿</div>
-  <p>قدرت هر کلیک: <b id="power">1</b></p>
-  <p>سطح: <b id="level">1</b></p>
+<div id="home" class="section active">
+  <div class="balance">
+    <div class="sub">موجودی کل</div>
+    <h1 class="gold" id="coins">0</h1>
+    <div class="sub">🪙 TAPCOIN</div>
+  </div>
+  <div class="coin-area">
+    <button class="coin" id="coin" aria-label="گرفتن سکه"><span>₿</span></button>
+  </div>
+  <p class="sub" style="text-align:center">برای گرفتن سکه لمس کن!</p>
+  <div class="stats">
+    <div class="card">
+      <div class="label">⚡ قدرت هر کلیک</div>
+      <div class="value" id="power">1</div>
+    </div>
+    <div class="card">
+      <div class="label">🚀 درآمد خودکار / ساعت</div>
+      <div class="value" id="income">0</div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <div class="rowline">
+      <span class="label">انرژی</span>
+      <b id="energyText">500 / 500</b>
+    </div>
+    <div class="progress"><div id="energyBar"></div></div>
+  </div>
 </div>
 
-<div class="card">
-  <h2>⚡ ارتقای کلیک</h2>
-  <p>هزینه: <span id="cost">50</span> سکه</p>
-  <button onclick="upgrade()">ارتقا بده</button>
+<div id="boost" class="section">
+  <h2>⚡ فروشگاه ارتقا</h2>
+  <div class="card item">
+    <div class="iconbox">👆</div>
+    <div class="info"><h3>قدرت کلیک</h3><p id="tapDesc">هر لمس سکهٔ بیشتری می‌دهد</p></div>
+    <button id="tapBuy" onclick="buyTap()">🪙 50</button>
+  </div>
+  <div class="card item">
+    <div class="iconbox">🤖</div>
+    <div class="info"><h3>ربات استخراج</h3><p id="autoDesc">درآمد خودکار بیشتر</p></div>
+    <button id="autoBuy" onclick="buyAuto()">🪙 100</button>
+  </div>
+  <p class="notice">درآمد خودکار در این نسخه فقط داخل ذخیرهٔ همین مرورگر محاسبه می‌شود.</p>
 </div>
 
-<div class="card">
+<div id="daily" class="section">
   <h2>🎁 جایزهٔ روزانه</h2>
-  <p>هر روز یک جایزه دریافت کن!</p>
-  <button onclick="daily()">دریافت 100 سکه</button>
-  <p id="dailyStatus" class="small"></p>
+  <div class="card" style="text-align:center;padding:25px">
+    <div style="font-size:55px">🎁</div>
+    <h2>جایزهٔ ورود</h2>
+    <p class="sub">هر ۲۴ ساعت یک جایزه بگیر</p>
+    <h2 class="gold">+100 🪙</h2>
+    <button class="main-btn" id="dailyBtn" onclick="claimDaily()">دریافت جایزه</button>
+    <p id="dailyMsg" class="sub"></p>
+  </div>
 </div>
+
+<div id="friends" class="section">
+  <h2>👥 دعوت دوستان</h2>
+  <div class="card" style="text-align:center;padding:24px">
+    <div style="font-size:45px">🚀</div>
+    <h2>با دوستات بازی کن</h2>
+    <p class="sub">لینک دعوتت رو به اشتراک بذار</p>
+    <button class="main-btn" onclick="shareInvite()">اشتراک‌گذاری لینک</button>
+    <button class="main-btn" style="background:#242a35;color:white" onclick="copyInvite()">کپی لینک دعوت</button>
+    <p class="notice">این نسخه لینک دعوت می‌سازد؛ ثبت دعوت و جایزهٔ واقعی به سرور نیاز دارد.</p>
+  </div>
+</div>
+
+<div id="rank" class="section">
+  <h2>🏆 رتبه‌بندی</h2>
+  <div class="card">
+    <div class="rank"><span>🥇 GoldPlayer</span><b>125,000</b></div>
+    <div class="rank"><span>🥈 CoinMaster</span><b>89,400</b></div>
+    <div class="rank"><span>🥉 TapLegend</span><b>51,200</b></div>
+    <div class="rank"><span>👤 تو (محلی)</span><b id="myRankCoins">0</b></div>
+  </div>
+  <p class="notice">رتبه‌های بالا نمونه هستند و واقعی نیستند. رتبه‌بندی مشترک بازیکنان را در مرحلهٔ سرور می‌سازیم.</p>
+</div>
+
+<nav class="nav">
+  <button class="active" data-tab="home"><b>🪙</b>خانه</button>
+  <button data-tab="boost"><b>⚡</b>ارتقا</button>
+  <button data-tab="daily"><b>🎁</b>جایزه</button>
+  <button data-tab="friends"><b>👥</b>دوستان</button>
+  <button data-tab="rank"><b>🏆</b>رتبه</button>
+</nav>
 
 <script>
-let data;
-try {
-  data = JSON.parse(localStorage.getItem("tapcoin-save")) || {};
-} catch {
-  data = {};
-}
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
 
-let coins = Math.max(0, Number(data.coins) || 0);
-let power = Math.max(1, Number(data.power) || 1);
-let level = Math.max(1, Number(data.level) || 1);
-let cost = Math.max(50, Number(data.cost) || 50);
-let lastDaily = data.lastDaily || "";
+const KEY = "tapcoin-pro-v1";
+const defaults = {
+  coins:0, power:1, tapCost:50, auto:0, autoCost:100,
+  lastDaily:0, lastTime:Date.now(), energy:500,
+  lastEnergyTime:Date.now(), inviteId:""
+};
+let s;
+try { s = {...defaults,...JSON.parse(localStorage.getItem(KEY) || "{}")}; }
+catch { s = {...defaults}; }
+
+if (!s.inviteId) {
+  s.inviteId = Math.random().toString(36).slice(2,10);
+}
+const MAX_ENERGY = 500;
+const fmt = n => Math.floor(n).toLocaleString("fa-IR");
 
 function save() {
-  localStorage.setItem("tapcoin-save", JSON.stringify({
-    coins, power, level, cost, lastDaily
-  }));
+  localStorage.setItem(KEY,JSON.stringify(s));
 }
-
 function render() {
-  document.getElementById("coins").textContent =
-    Math.floor(coins).toLocaleString("fa-IR");
-  document.getElementById("power").textContent =
-    power.toLocaleString("fa-IR");
-  document.getElementById("level").textContent =
-    level.toLocaleString("fa-IR");
-  document.getElementById("cost").textContent =
-    cost.toLocaleString("fa-IR");
+  document.getElementById("coins").textContent = fmt(s.coins);
+  document.getElementById("power").textContent = fmt(s.power);
+  document.getElementById("income").textContent = fmt(s.auto);
+  document.getElementById("tapBuy").textContent = "🪙 " + fmt(s.tapCost);
+  document.getElementById("autoBuy").textContent = "🪙 " + fmt(s.autoCost);
+  document.getElementById("tapDesc").textContent = "قدرت فعلی: " + fmt(s.power);
+  document.getElementById("autoDesc").textContent = "درآمد فعلی: " + fmt(s.auto) + " سکه در ساعت";
+  document.getElementById("myRankCoins").textContent = fmt(s.coins);
+  document.getElementById("energyText").textContent = fmt(s.energy) + " / 500";
+  document.getElementById("energyBar").style.width = (s.energy/500*100) + "%";
+  const wait = 86400000 - (Date.now()-s.lastDaily);
+  const btn = document.getElementById("dailyBtn");
+  if (s.lastDaily && wait > 0) {
+    btn.disabled = true;
+    document.getElementById("dailyMsg").textContent =
+      "زمان باقی‌مانده: " + Math.ceil(wait/3600000) + " ساعت";
+  } else {
+    btn.disabled = false;
+    document.getElementById("dailyMsg").textContent = "جایزه آماده است!";
+  }
+  save();
 }
 
 function tap() {
-  coins += power;
-  save();
+  if (s.energy < 1) return;
+  s.coins += s.power;
+  s.energy = Math.max(0,s.energy-1);
+  const el = document.createElement("div");
+  el.className = "float";
+  el.textContent = "+" + s.power;
+  el.style.left = (innerWidth/2 + (Math.random()*70-35)) + "px";
+  el.style.top = (innerHeight/2 - 60 + (Math.random()*30)) + "px";
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),700);
   render();
 }
+document.getElementById("coin").addEventListener("click",tap);
 
-function upgrade() {
-  if (coins < cost) {
-    alert("سکه‌هات کافی نیست!");
-    return;
+function buyTap() {
+  if (s.coins < s.tapCost) return alert("سکه کافی نیست!");
+  s.coins -= s.tapCost;
+  s.power++;
+  s.tapCost = Math.ceil(s.tapCost*1.65);
+  render();
+}
+function buyAuto() {
+  if (s.coins < s.autoCost) return alert("سکه کافی نیست!");
+  s.coins -= s.autoCost;
+  s.auto += 10;
+  s.autoCost = Math.ceil(s.autoCost*1.8);
+  render();
+}
+function claimDaily() {
+  if (s.lastDaily && Date.now()-s.lastDaily < 86400000) return;
+  s.coins += 100;
+  s.lastDaily = Date.now();
+  render();
+}
+function inviteLink() {
+  return "https://t.me/TappCoiinnBot?start=ref_" + s.inviteId;
+}
+async function copyInvite() {
+  try {
+    await navigator.clipboard.writeText(inviteLink());
+    alert("لینک دعوت کپی شد!");
+  } catch {
+    prompt("لینک دعوتت:",inviteLink());
   }
-  coins -= cost;
-  power++;
-  level++;
-  cost = Math.ceil(cost * 1.7);
-  save();
-  render();
+}
+async function shareInvite() {
+  if (navigator.share) {
+    try { await navigator.share({title:"TapCoin",text:"بیا TapCoin بازی کنیم!",url:inviteLink()}); }
+    catch {}
+  } else copyInvite();
 }
 
-function daily() {
-  const today = new Date().toLocaleDateString("en-CA");
-  if (lastDaily === today) {
-    document.getElementById("dailyStatus").textContent =
-      "امروز جایزه‌ات رو گرفتی؛ فردا دوباره بیا!";
-    return;
+document.querySelectorAll(".nav button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(btn.dataset.tab).classList.add("active");
+  });
+});
+
+function tick() {
+  const now = Date.now();
+  const elapsed = Math.max(0,(now-(s.lastTime||now))/1000);
+  s.coins += Math.min(elapsed,8*3600) * s.auto/3600;
+  const energyElapsed = Math.max(0,now-(s.lastEnergyTime||now));
+  s.energy = Math.min(MAX_ENERGY,s.energy+Math.floor(energyElapsed/6000));
+  if (s.energy < MAX_ENERGY) {
+    s.lastEnergyTime = now - (energyElapsed % 6000);
+  } else {
+    s.lastEnergyTime = now;
   }
-  coins += 100;
-  lastDaily = today;
-  save();
+  s.lastTime = now;
   render();
-  document.getElementById("dailyStatus").textContent =
-    "🎉 100 سکه دریافت کردی!";
 }
-
-render();
+tick();
+setInterval(tick,1000);
 </script>
 </body>
 </html>
