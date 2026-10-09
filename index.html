@@ -17,7 +17,8 @@ header{display:flex;justify-content:space-between;align-items:center}
 .balance{text-align:center;margin:27px 0 12px}.balance h1{font-size:38px;margin:5px}
 .gold{color:var(--gold)}
 .coin-area{display:flex;justify-content:center;margin:26px 0}
-.coin{width:190px;height:190px;border-radius:50%;background:radial-gradient(circle at 35% 25%,#fff1a8,#ffca42 42%,#b77913 78%,#ffe9a0);border:7px solid #9b6c1b;box-shadow:0 0 0 7px #f8c84a16,0 0 45px #f8b93124,inset 0 0 0 5px #fff5bd;color:#5b3900;font-size:65px;font-weight:1000}
+.coin{width:190px;height:190px;border-radius:50%;background:radial-gradient(circle at 35% 25%,#fff1a8,#ffca42 42%,#b77913 78%,#ffe9a0);border:7px solid #9b6c1b;box-shadow:0 0 0 7px #f8c84a16,0 0 45px #f8b93124,inset 0 0 0 5px #fff5bd;color:#5b3900;font-size:65px;font-weight:1000;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.coin:active{transform:scale(.96)}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .card{background:linear-gradient(145deg,#191e29,#11151c);border:1px solid var(--line);border-radius:17px;padding:15px}
 .label{color:var(--muted);font-size:12px}.value{font-size:19px;font-weight:800;margin-top:6px}
@@ -36,6 +37,7 @@ h2{font-size:19px;margin:5px 0 14px}
 .notice{font-size:12px;color:var(--muted);line-height:1.8;margin-top:13px}
 .rowline{display:flex;justify-content:space-between;gap:10px;align-items:center}
 #status{padding:10px;border-radius:10px;background:#141821;color:var(--muted);font-size:12px;line-height:1.8}
+#status.ok{color:#9fe4a8}
 </style>
 </head>
 <body>
@@ -91,54 +93,131 @@ if(tg){tg.ready();tg.expand();}
 const SUPABASE_URL="https://ogmlkxpwsrvqhslzokpp.supabase.co";
 const SUPABASE_KEY="sb_publishable_DbpfHNHKZYk3ZdXPR2r3Qw_9SSKiU1o";
 const API_URL=SUPABASE_URL+"/functions/v1/tapcoin-api";
-let player=null,busy=false;
+
+let player=null;
+let ready=false;
+let actionQueue=Promise.resolve();
+let pendingTaps=0;
+let displayedCoins=0;
+let lastError="";
 const $=id=>document.getElementById(id);
 const fmt=n=>Number(n||0).toLocaleString("fa-IR");
-const status=m=>{$("status").textContent=m;};
+
+function status(message,isOk=false){
+  $("status").textContent=message;
+  $("status").classList.toggle("ok",isOk);
+}
 
 async function serverAction(action){
   if(!tg?.initData) throw new Error("بازی را از داخل منوی ربات تلگرام باز کن.");
+
   const response=await fetch(API_URL,{
     method:"POST",
-    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},
+    headers:{
+      "Content-Type":"application/json",
+      "apikey":SUPABASE_KEY,
+      "Authorization":"Bearer "+SUPABASE_KEY
+    },
     body:JSON.stringify({initData:tg.initData,action})
   });
+
   let result;
-  try{result=await response.json();}catch{throw new Error("پاسخ سرور قابل خواندن نیست.");}
-  if(!response.ok||!result.ok||!result.player)
+  try{result=await response.json();}
+  catch{throw new Error("پاسخ سرور قابل خواندن نیست.");}
+
+  if(!response.ok||!result.ok||!result.player){
     throw new Error(result.error||result.message||("خطای سرور: "+response.status));
+  }
   return result.player;
 }
 
 function render(){
   if(!player)return;
-  $("coins").textContent=fmt(player.coins);
-  $("myRankCoins").textContent=fmt(player.coins);
+
+  const actualCoins=Number(player.coins||0);
+  displayedCoins=actualCoins+pendingTaps*Number(player.power||1);
+
+  $("coins").textContent=fmt(displayedCoins);
+  $("myRankCoins").textContent=fmt(displayedCoins);
   $("power").textContent=fmt(player.power);
   $("income").textContent=fmt(player.auto_income);
-  $("energyText").textContent=fmt(player.energy)+" / 500";
-  $("energyBar").style.width=Math.max(0,Math.min(100,Number(player.energy)/5))+"%";
+  $("energyText").textContent=fmt(Math.max(0,Number(player.energy||0)-pendingTaps))+" / 500";
+  $("energyBar").style.width=Math.max(0,Math.min(100,(Number(player.energy||0)-pendingTaps)/5))+"%";
   $("tapBuy").textContent="🪙 "+fmt(player.tap_cost);
   $("autoBuy").textContent="🪙 "+fmt(player.auto_cost);
   $("tapDesc").textContent="قدرت فعلی: "+fmt(player.power);
   $("autoDesc").textContent="درآمد فعلی: "+fmt(player.auto_income)+" سکه در ساعت";
   $("username").textContent=player.username||tg?.initDataUnsafe?.user?.first_name||"بازیکن";
+
   const last=player.last_daily?new Date(player.last_daily).getTime():0;
   const wait=86400000-(Date.now()-last);
   $("dailyMsg").textContent=last&&wait>0?"زمان باقی‌مانده: "+Math.ceil(wait/3600000)+" ساعت":"جایزه آماده است!";
-  $("coin").disabled=busy||Number(player.energy)<1;
-  $("tapBuy").disabled=busy;$("autoBuy").disabled=busy;
-  $("dailyBtn").disabled=busy||(last>0&&wait>0);
+
+  $("coin").disabled=!ready||Number(player.energy||0)-pendingTaps<1;
+  $("tapBuy").disabled=!ready||pendingTaps>0;
+  $("autoBuy").disabled=!ready||pendingTaps>0;
+  $("dailyBtn").disabled=!ready||pendingTaps>0||(last>0&&wait>0);
 }
 
-async function perform(action,message){
-  if(busy)return;
-  busy=true;render();status("در حال ثبت روی سرور...");
-  try{player=await serverAction(action);render();status(message);}
-  catch(e){status("خطا: "+(e.message||"اتصال ناموفق"));}
-  finally{busy=false;render();}
+function enqueue(action){
+  actionQueue=actionQueue.then(async()=>{
+    const updated=await serverAction(action);
+    player=updated;
+  });
+  return actionQueue;
 }
-$("coin").addEventListener("click",()=>perform("tap","کلیک روی سرور ثبت شد."));
+
+async function processTapQueue(){
+  if(processTapQueue.running)return;
+  processTapQueue.running=true;
+
+  try{
+    while(pendingTaps>0){
+      try{
+        const updated=await serverAction("tap");
+        player=updated;
+        pendingTaps--;
+        render();
+      }catch(error){
+        pendingTaps=0;
+        lastError=error.message||"اتصال ناموفق";
+        status("خطا در ثبت کلیک: "+lastError);
+        render();
+        break;
+      }
+    }
+  }finally{
+    processTapQueue.running=false;
+    render();
+  }
+}
+
+$("coin").addEventListener("click",()=>{
+  if(!ready||!player)return;
+  if(Number(player.energy||0)-pendingTaps<1)return;
+
+  pendingTaps++;
+  render();
+  processTapQueue();
+});
+
+async function perform(action,successMessage){
+  if(!ready||pendingTaps>0)return;
+  ready=false;
+  render();
+  status("در حال انجام عملیات...");
+
+  try{
+    await enqueue(action);
+    status(successMessage,true);
+  }catch(error){
+    status("خطا: "+(error.message||"اتصال ناموفق"));
+  }finally{
+    ready=true;
+    render();
+  }
+}
+
 $("tapBuy").addEventListener("click",()=>perform("buyTap","ارتقا ثبت شد."));
 $("autoBuy").addEventListener("click",()=>perform("buyAuto","ربات ارتقا یافت."));
 $("dailyBtn").addEventListener("click",()=>perform("daily","جایزه روزانه ثبت شد."));
@@ -146,28 +225,47 @@ $("dailyBtn").addEventListener("click",()=>perform("daily","جایزه روزا�
 function inviteLink(){
   return "https://t.me/TappCoiinnBot?start=ref_"+(tg?.initDataUnsafe?.user?.id||"invite");
 }
+
 $("copyBtn").addEventListener("click",async()=>{
-  try{await navigator.clipboard.writeText(inviteLink());status("لینک دعوت کپی شد.");}
-  catch{window.prompt("لینک دعوت:",inviteLink());}
+  try{
+    await navigator.clipboard.writeText(inviteLink());
+    status("لینک دعوت کپی شد.",true);
+  }catch{
+    window.prompt("لینک دعوت:",inviteLink());
+  }
 });
+
 $("shareBtn").addEventListener("click",()=>{
   const url="https://t.me/share/url?url="+encodeURIComponent(inviteLink())+"&text="+encodeURIComponent("بیا TapCoin بازی کنیم!");
-  if(tg?.openTelegramLink)tg.openTelegramLink(url);else window.open(url,"_blank");
+  if(tg?.openTelegramLink)tg.openTelegramLink(url);
+  else window.open(url,"_blank");
 });
 
 document.querySelectorAll(".nav button").forEach(btn=>{
   btn.addEventListener("click",()=>{
     document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
     document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
-    btn.classList.add("active");$(btn.dataset.tab).classList.add("active");
+    btn.classList.add("active");
+    $(btn.dataset.tab).classList.add("active");
   });
 });
 
 async function init(){
-  if(!tg?.initData){status("برای ورود معتبر، بازی را از داخل منوی ربات تلگرام باز کن.");return;}
-  try{player=await serverAction("get");render();status("اطلاعات حساب از سرور دریافت شد.");}
-  catch(e){status("خطای اتصال: "+(e.message||"نامشخص"));}
+  if(!tg?.initData){
+    status("برای ورود معتبر، بازی را از داخل منوی ربات تلگرام باز کن.");
+    return;
+  }
+
+  try{
+    player=await serverAction("get");
+    ready=true;
+    render();
+    status("حساب متصل شد؛ آمادهٔ بازی هستی!",true);
+  }catch(error){
+    status("خطای اتصال: "+(error.message||"نامشخص"));
+  }
 }
+
 init();
 </script>
 </body>
