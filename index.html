@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TapCoin</title>
+  <style>
+    body {
+      background: #101827;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 30px 15px;
+    }
+    .coin {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      border: 6px solid #ffe17a;
+      background: linear-gradient(#ffd84d, #e99a00);
+      color: #513400;
+      font-size: 70px;
+      margin: 35px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>🪙 TapCoin</h1>
+  <h2>سکه‌های من: <span id="coins">0</span></h2>
+  <div class="coin" onclick="tap()">₿</div>
+  <p>برای گرفتن سکه روی سکه بزن!</p>
+
+  <script>
+    let coins = 0;
+
+    function tap() {
+      coins++;
+      document.getElementById("coins").textContent = coins;
+    }
+  </script>
+</body>
+</html>
